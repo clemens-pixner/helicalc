@@ -13,19 +13,18 @@ class Inputs:
         self.flighthours = TriangularDistribution(20.00, 80.00, 45.00)  
         self.priceperminute = 35.00
         
-        def additional_revenue(self):
-            r = random.random()
+    def additional_revenue(self):
+        r = random.random()
 
-            if r < 0.80: #80% no additional revenue
-                return 0.00
-            else: #20% additional revenue 
-                return TriangularDistribution(2_000.00, 12_000.00, 5_000.00).sample()
-        
-        def revenue(self):
-            flighthours_value = self.flighthours.sample()
-            base_revenue = flighthours_value * 60 * self.priceperminute
-            extra_revenue = self.additional_revenue()
-            return base_revenue + extra_revenue
+        if r < 0.80: #80% no additional revenue
+            return 0.00
+        else: #20% additional revenue 
+            return TriangularDistribution(2_000.00, 12_000.00, 5_000.00).sample()
+    
+    def revenue(self, flighthours):
+        base_revenue = flighthours * 60 * self.priceperminute
+        extra_revenue = self.additional_revenue()
+        return base_revenue + extra_revenue 
         
 class VariableCosts:
     def __init__(self):
@@ -44,44 +43,46 @@ class FixedCosts:
         self.salary = 5_000.00
         self.admin = TriangularDistribution(25_000.00, 60_000.00, 40_000.00)
 
-        def other(self):
-            r = random.random()
+    def other(self):
+        r = random.random()
 
-            if r < 80: #80% normal cost
-                other_costs = random.uniform(10_000.00, 20_000.00)
-            elif r < 95: #15% medium cost
-                other_costs = random.uniform(20_000.00, 30_000.00)
-            else: #5% high cost
-                other_costs = random.uniform(30_000.00, 40_000.00)
+        if r < 0.80: #80% normal cost
+            other_costs = random.uniform(10_000.00, 20_000.00)
+        elif r < 0.95: #15% medium cost
+            other_costs = random.uniform(20_000.00, 30_000.00)
+        else: #5% high cost
+            other_costs = random.uniform(30_000.00, 40_000.00)
 
-            return other_costs
-        
-        def total_fixed_costs(self):
-            return(
-                self.aoc.sample()
-                + self.insurance.sample()
-                + (self.salary * 12)
-                + self.admin.sample()
-                + self.other()
-            )
+        return other_costs
+    
+    def total_fixed_costs(self):
+        return(
+            self.aoc.sample()
+            + self.insurance.sample()
+            + (self.salary * 12)
+            + self.admin.sample()
+            + self.other()
+        )
 
-class Financing: 
+class Financing:
     def __init__(self):
         self.purchase_price = None
         self.equity = None
         self.loan = self.purchase_price - self.equity
-        self.duration = None
-        self.current_rate = 0.055
-        
-    def interest_rate(self):
-        r = random.random()
-        
-        if r < 0.70: # 70% small movement (±0.3%)
-            change = random.triangular(-0.003, 0.003, 0.0)
-        
-        elif r < 0.90: # 20% medium movement (±1.0%)
-            change = random.triangular(-0.01, 0.01, 0.0)
 
+        self.duration = None
+        self.remaining_loan = self.loan
+        self.remaining_months = self.duration * 12
+
+        self.current_rate = 0.055
+
+    def update_rate(self):
+        r = random.random()
+
+        if r < 0.70:  # 70% small movement (±0.3%)
+            change = random.triangular(-0.003, 0.003, 0.0)
+        elif r < 0.90:  # 20% medium movement (±1.0%)
+            change = random.triangular(-0.01, 0.01, 0.0)
         else:  # 10% large movement (±2.0%)
             change = random.triangular(-0.02, 0.02, 0.0)
 
@@ -93,12 +94,32 @@ class Financing:
         return self.current_rate
 
     def monthly_payment(self):
-        annual_rate = self.interest_rate()
-        r = annual_rate / 12
-        n = self.duration * 12
-        L = self.loan
+        r = self.current_rate / 12
+        n = self.remaining_months
+        L = self.remaining_loan
+
+        if n <= 0:
+            return 0.0
+
+        if r == 0:
+            return L / n
 
         return L * (r * (1 + r) ** n) / ((1 + r) ** n - 1)
+
+    def apply_month(self, payment):
+        if self.remaining_months <= 0 or self.remaining_loan <= 0:
+            return 0.0, 0.0
+
+        r = self.current_rate / 12
+        interest = self.remaining_loan * r
+        principal = payment - interest
+
+        self.remaining_loan -= principal
+        self.remaining_loan = max(0.0, self.remaining_loan)
+
+        self.remaining_months -= 1
+
+        return interest, principal
 
 class Depreciation:
     def __init__(self):
@@ -110,7 +131,7 @@ class Depreciation:
         return (self.purchase_price - self.residual_value) / (self.holding_period * 12)
 
 class Events:
-    def technical_failure():
+    def technical_failure(self):
         r = random.random()
 
         if r < 0.85: #85% no additional maintenance
