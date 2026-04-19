@@ -34,7 +34,7 @@ class VariableCosts:
     def total_variable_costs(self, flighthours):
         doc_cost = self.doc.sample() * flighthours
         overhaul_cost = self.overhaul_reserve.sample() * flighthours
-        return doc_cost, overhaul_cost
+        return doc_cost + overhaul_cost
 
 class FixedCosts:
     def __init__(self):
@@ -66,10 +66,10 @@ class FixedCosts:
 
 class Financing:
     def __init__(self):
-        self.purchase_price = None 
-        self.equity = None
+        self.purchase_price = 3_500_000.00
+        self.equity = 700_000.00
         self.loan = self.purchase_price - self.equity
-        self.duration = None
+        self.duration = 10
 
         self.remaining_loan = self.loan
         self.remaining_months = self.duration * 12
@@ -123,52 +123,31 @@ class Financing:
 
 class Depreciation:
     def __init__(self):
-        self.purchase_price = 0.0
+        self.purchase_price = 3_500_000
         self.current_value = self.purchase_price
         self.time = 0.0
-        self.age = 0
-
-    def yearly_increase(self, flighthours):
-        self.time += flighthours
-        self.age += 1
-        return self.time, self.age
 
     def yearly_depreciation(self, flighthours):
         # hours-based depreciation per flight hour
+        self.time += flighthours
         if self.time < 1000.0:
-            hour_rate = 350.0
+            hour_rate = 300.0
         elif self.time < 2000.0:
-            hour_rate = 280.0
+            hour_rate = 250.0
         elif self.time < 3000.0:
-            hour_rate = 220.0
-        elif self.time < 4000.0:
-            hour_rate = 260.0
+            hour_rate = 200.0
         else:
-            hour_rate = 320.0
+            hour_rate = 180.0
 
-        time_depreciation = flighthours * hour_rate
+        depreciation = flighthours * hour_rate
 
-        # age-based depreciation rate
-        if self.age <= 2:
-            age_rate = random.uniform(0.04, 0.05)
-        elif self.age <= 5:
-            age_rate = random.uniform(0.03, 0.04)
-        elif self.age <= 10:
-            age_rate = random.uniform(0.02, 0.03)
-        else:
-            age_rate = 0.02
+        self.current_value -= depreciation
+        self.current_value = max(self.purchase_price * 0.2, self.current_value)
 
-        age_depreciation = self.current_value * age_rate
-
-        total_depreciation = time_depreciation + age_depreciation
-
-        self.current_value -= total_depreciation
-        self.current_value = max(0.0, self.current_value)
-
-        return total_depreciation
+        return depreciation
         
         
-class Events:
+class Events: #OFF
     def technical_failure(self):
         r = random.random()
 
@@ -194,7 +173,7 @@ class Events:
             return 1.4
         
 
-class OverhaulSystem:
+class OverhaulSystem: #OFF
     def __init__(self):
         self.total_overhaul = 0.00
 
@@ -214,4 +193,63 @@ class OverhaulSystem:
         deduction = self.total_overhaul * factor
         self.total_overhaul -= deduction
         return deduction
+
+all_runs = []
+
+for run in range(1_000):
+    yearly_results = []
+
+    inputs = Inputs()
+    costs = VariableCosts()
+    fixed = FixedCosts()
+    financing = Financing()
+    dep = Depreciation()
+
+    for year in range(20):
+        yearly_flighthours = 0.0
+        yearly_revenue = 0.0
+        yearly_var_cost = 0.0
+        yearly_fixed_cost = fixed.total_fixed_costs()
+
+        yearly_interest = 0.0
+        yearly_principal = 0.0
+        yearly_payments = 0.0
+
+
+        for month in range(12):
+            monthly_flighthours = inputs.flighthours.sample()
+            monthly_revenue = inputs.revenue(monthly_flighthours)
+            monthly_var_cost = costs.total_variable_costs(monthly_flighthours)
+
+            financing.update_rate()
+            monthly_payment = financing.monthly_payment()
+            interest, principal = financing.apply_month(monthly_payment)
+
+            yearly_flighthours += monthly_flighthours
+            yearly_revenue += monthly_revenue
+            yearly_var_cost += monthly_var_cost
+
+            yearly_interest += interest
+            yearly_principal += principal
+            yearly_payments += monthly_payment
+
+        yearly_depreciation = dep.yearly_depreciation(yearly_flighthours)
+
+        operating_profit = yearly_revenue - yearly_var_cost - yearly_fixed_cost - yearly_depreciation
+        cashflow_after_debt = yearly_revenue - yearly_var_cost - yearly_fixed_cost - yearly_payments
+
+        yearly_results.append({
+            "year" : year + 1,
+            "flighthours" : yearly_flighthours,
+            "revenue" : yearly_revenue,
+            "var_cost" : yearly_var_cost,
+            "fixed_cost" : yearly_fixed_cost,
+            "depreciation" : yearly_depreciation,
+            "operating_profit" : operating_profit,
+            "cashflow" : cashflow_after_debt,
+            "value" : dep.current_value, 
+            "loan" : financing.remaining_loan   
+        })
+
+    all_runs.append(yearly_results)
 
