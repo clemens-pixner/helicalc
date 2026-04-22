@@ -1,4 +1,8 @@
 import random
+import pandas as pd
+
+pd.set_option("display.float_format", "{:,.2f}".format)
+
 class TriangularDistribution:
     def __init__(self, min_val, max_val, mode):
         self.min = min_val
@@ -194,21 +198,6 @@ class OverhaulSystem: #OFF
         self.total_overhaul -= deduction
         return deduction
 
-
-#Analysis functions
-
-def prepare_dataframe(all_runs):
-    import pandas as pd
-    return pd.DataFrame(all_runs)
-
-def calculate_metrics(df):
-    results = {}
-
-    total_per_run = df.groupby("run")["cashflow"].sum()
-    
-
-
-
 #Simulation
 all_runs = []
 
@@ -268,3 +257,32 @@ for run in range(1_000):
         })
 
 
+#Visualization 
+df = pd.DataFrame(all_runs)
+
+avg_cashflow = df["cashflow"].mean()
+median_cashflow = df["cashflow"].median()
+best_cashflow = df["cashflow"].max()
+worst_cashflow = df["cashflow"].min()
+
+run_profit = df.groupby("run")["cashflow"].sum()
+success_rate = (run_profit > 0).mean()
+
+best_year = df.loc[df["cashflow"].idxmax()]
+worst_year = df.loc[df["cashflow"].idxmin()]
+
+best_run = run_profit.idxmax()
+df[df["run"] == best_run]
+
+worst_run = run_profit.idxmin()
+df[df["run"] == worst_run]
+
+print(f"Average Cashflow: {avg_cashflow}")
+print(f"Median Cashflow: {median_cashflow}\n")
+print(f"Best Cashflow: {best_cashflow}")
+print(f"Worst Cashflow: {worst_cashflow}\n")
+print(f"Success Rate: {success_rate}\n")
+print(f"Best Year: {best_year}")
+print(f"Worst Year: {worst_year}\n")
+print(f"Best Run: {best_run}")
+print(f"Worst Run: {worst_run}")
