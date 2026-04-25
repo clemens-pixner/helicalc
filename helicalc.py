@@ -57,26 +57,33 @@ for run in range(runs):
         })
 
 df = pd.DataFrame(results)
-avg = df.groupby("year")["cashflow"].mean()
 
 plt.style.use("fivethirtyeight")
-plt.figure(figsize=(10,5))
-
-for run_id, run_data in df.groupby("run"):
-    plt.plot(run_data["year"], run_data["cashflow"], alpha=0.05)
-
-plt.plot(avg.index, avg.values, linewidth=3)
-
-plt.xlabel("Year")
-plt.ylabel("Cashflow")
-plt.title("Cashflow per Run")
-
-plt.figure()
 
 df["cashflow"].hist(bins=50)
 
 plt.xlabel("Cashflow")
 plt.ylabel("Frequency")
 plt.title("Cashflow Distribution")
+
+run_cashflow = df.groupby("run")["cashflow"].sum()
+avg = df.groupby("year")["cashflow"].mean()
+
+best_run = run_cashflow.idxmax()
+worst_run = run_cashflow.idxmin()
+
+best_data = df[df["run"] == best_run]
+worst_data = df[df["run"] == worst_run]
+
+plt.figure(figsize=(10, 5))
+
+plt.plot(best_data["year"], best_data["cashflow"], label="Best Run", linewidth=3)
+plt.plot(worst_data["year"], worst_data["cashflow"], label="Worst Run", linewidth=3)
+plt.plot(avg.index, avg.values, label="Average", linewidth=3)
+
+plt.xlabel("Year")
+plt.ylabel("Cashflow")
+plt.title("Best vs Worst Run")
+plt.legend()
 
 plt.show()
